@@ -57,6 +57,8 @@ async function main() {
           size: img.size,
           log_date: img.log_date,
           created_at: img.created_at,
+          description: img.description,
+          filename: img.filename,
         }))
       );
     }

@@ -8,9 +8,11 @@ export interface ProcoreImage {
   width?: number;
   height?: number;
   size?: number; // bytes
-  created_at: string;
+  created_at: string; // ISO
   updated_at?: string;
-  log_date?: string;
+  log_date?: string; // often undefined in your case
+  description?: string; // user-entered description (may be empty string)
+  filename?: string; // original filename
   [key: string]: any;
 }
 
@@ -108,4 +110,62 @@ export async function getImagesForMonth(
   const endDate = formatDate(effectiveEnd);
 
   return getImagesForCreatedAtRange(projectId, startDate, endDate);
+}
+
+// Normalize an image's "day" as YYYY-MM-DD
+export function getImageDate(img: ProcoreImage): string | null {
+  // Prefer log_date if Procore ever populates it
+  if (img.log_date && img.log_date.length >= 10) {
+    return img.log_date.slice(0, 10);
+  }
+
+  if (img.created_at && img.created_at.length >= 10) {
+    return img.created_at.slice(0, 10);
+  }
+
+  return null;
+}
+
+// Group images by normalized date (YYYY-MM-DD)
+export function groupImagesByDate(
+  images: ProcoreImage[]
+): Map<string, ProcoreImage[]> {
+  const map = new Map<string, ProcoreImage[]>();
+
+  for (const img of images) {
+    const date = getImageDate(img);
+    if (!date) continue;
+
+    const existing = map.get(date);
+    if (existing) {
+      existing.push(img);
+    } else {
+      map.set(date, [img]);
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Filter images to only those matching the given IDs, preserving the order of IDs.
+ */
+export function filterImagesByIds(
+  images: ProcoreImage[],
+  ids: number[]
+): ProcoreImage[] {
+  const imageById = new Map<number, ProcoreImage>();
+  for (const img of images) {
+    imageById.set(img.id, img);
+  }
+
+  const result: ProcoreImage[] = [];
+  for (const id of ids) {
+    const img = imageById.get(id);
+    if (img) {
+      result.push(img);
+    }
+  }
+
+  return result;
 }

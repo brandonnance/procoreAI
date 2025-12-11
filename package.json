@@ -11,7 +11,13 @@
     "test-notes": "ts-node src/testDailyNotes.ts",
     "summarize-notes": "ts-node src/summarizeNotesForMonth.ts",
     "test-images-november": "ts-node src/testImagesForNovember.ts",
-    "test-images-single": "ts-node src/testImagesSingle.ts"
+    "test-images-single": "ts-node src/testImagesSingle.ts",
+    "test-images-by-date": "ts-node src/testImagesByDate.ts",
+    "test-image-candidates": "ts-node src/testImageCandidates.ts",
+    "test-image-selection": "ts-node src/testImageSelection.ts",
+    "build-report-spec": "ts-node src/testBuildReportSpec.ts",
+    "test-slides": "ts-node src/testSlideGeneration.ts",
+    "test-lookahead": "ts-node src/testLookahead.ts"
   },
   "keywords": [],
   "author": "",
@@ -21,11 +27,15 @@
     "dotenv": "^17.2.3",
     "fs-extra": "^11.3.2",
     "openai": "^6.10.0",
+    "pdf-lib": "^1.17.1",
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.34.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^25.0.0"
+    "@types/node": "^25.0.0",
+    "@types/sharp": "^0.31.1"
   }
 }
