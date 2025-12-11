@@ -1,0 +1,31 @@
+{
+  "name": "procore-ai-agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test-config": "ts-node src/testConfig.ts",
+    "procore-auth-init": "ts-node src/getInitialTokens.ts",
+    "list-projects": "ts-node src/testListProjects.ts",
+    "test-notes": "ts-node src/testDailyNotes.ts",
+    "summarize-notes": "ts-node src/summarizeNotesForMonth.ts",
+    "test-images-november": "ts-node src/testImagesForNovember.ts",
+    "test-images-single": "ts-node src/testImagesSingle.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "fs-extra": "^11.3.2",
+    "openai": "^6.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.0.0"
+  }
+}
