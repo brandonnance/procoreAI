@@ -1,15 +1,16 @@
 import axios from "axios";
-import fs from "fs-extra";
 import {
   PROCORE_CLIENT_ID,
   PROCORE_CLIENT_SECRET,
   PROCORE_OAUTH_BASE_URL,
   PROCORE_REDIRECT_URI,
 } from "./config";
+import { supabase } from "./supabaseClient";
 
-const TOKEN_PATH = "./tokens.json";
+// Token row ID - we use a single row for the app's Procore tokens
+const TOKEN_ROW_ID = "procore-oauth-tokens";
 
-interface TokenFile {
+interface TokenData {
   access_token: string;
   refresh_token: string;
   expires_in: number;
@@ -17,17 +18,49 @@ interface TokenFile {
   obtained_at: number;
 }
 
-export async function loadTokens(): Promise<TokenFile> {
-  if (!(await fs.pathExists(TOKEN_PATH))) {
-    throw new Error("tokens.json not found — run the OAuth init flow first.");
+/**
+ * Load tokens from Supabase.
+ * Tokens are stored in a simple key-value table: procore_tokens
+ */
+export async function loadTokens(): Promise<TokenData> {
+  const { data, error } = await supabase
+    .from("procore_tokens")
+    .select("token_data")
+    .eq("id", TOKEN_ROW_ID)
+    .single();
+
+  if (error || !data) {
+    throw new Error(
+      "Procore tokens not found in database. Run the OAuth init flow first, then seed the tokens."
+    );
   }
-  return fs.readJSON(TOKEN_PATH);
+
+  return data.token_data as TokenData;
 }
 
-async function saveTokens(tokens: TokenFile) {
-  await fs.writeJSON(TOKEN_PATH, tokens, { spaces: 2 });
+/**
+ * Save tokens to Supabase (upsert).
+ */
+async function saveTokens(tokens: TokenData): Promise<void> {
+  const { error } = await supabase.from("procore_tokens").upsert(
+    {
+      id: TOKEN_ROW_ID,
+      token_data: tokens,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    console.error("Failed to save tokens to Supabase:", error.message);
+    throw new Error(`Failed to save tokens: ${error.message}`);
+  }
 }
 
+/**
+ * Get a fresh access token, refreshing if needed.
+ * Automatically saves the new tokens to Supabase.
+ */
 export async function getFreshAccessToken(): Promise<string> {
   const stored = await loadTokens();
 
@@ -45,7 +78,7 @@ export async function getFreshAccessToken(): Promise<string> {
     }
   );
 
-  const newTokens = {
+  const newTokens: TokenData = {
     ...stored,
     access_token: res.data.access_token,
     refresh_token: res.data.refresh_token ?? stored.refresh_token,

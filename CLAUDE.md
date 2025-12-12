@@ -153,6 +153,25 @@ jobs (
 
 **Note:** If `procore_project_id` is null, the worker will fail the report with a message asking to link a Procore project.
 
+### Table: `procore_tokens`
+Stores Procore OAuth tokens. Single row, updated on each token refresh.
+
+```sql
+create table procore_tokens (
+  id text primary key,  -- 'procore-oauth-tokens'
+  token_data jsonb not null,  -- { access_token, refresh_token, expires_in, token_type, obtained_at }
+  updated_at timestamptz default now()
+);
+
+-- Seed initial tokens (run once after OAuth flow):
+insert into procore_tokens (id, token_data) values (
+  'procore-oauth-tokens',
+  '{"access_token": "...", "refresh_token": "...", "expires_in": 7200, "token_type": "Bearer", "obtained_at": 1234567890}'
+);
+```
+
+**Note:** No RLS on this table - only accessed by backend with service role key.
+
 ### Storage Bucket: `owner-reports`
 - Path format: `reports/{report_id}/{filename}.pptx`
 - Frontend generates signed URLs at download time
