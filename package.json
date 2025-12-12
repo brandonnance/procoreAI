@@ -18,7 +18,8 @@
     "build-report-spec": "ts-node src/testBuildReportSpec.ts",
     "test-slides": "ts-node src/testSlideGeneration.ts",
     "test-lookahead": "ts-node src/testLookahead.ts",
-    "worker": "ts-node src/worker/reportWorker.ts"
+    "worker": "ts-node src/worker/reportWorker.ts",
+    "sync-procore-projects": "ts-node src/syncProcoreProjects.ts"
   },
   "keywords": [],
   "author": "",
