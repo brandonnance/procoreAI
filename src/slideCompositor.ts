@@ -367,6 +367,7 @@ export interface LookaheadSlideTask {
 export interface LookaheadSlideData {
   label: string; // Header like "08/27/21 - 09/16/21 | 3 Weeks"
   tasks: LookaheadSlideTask[];
+  placeholderMessage?: string; // Shown when no lookahead data available
 }
 
 export interface PptxSlideInput {
@@ -447,7 +448,7 @@ export async function assembleSlidesPresentation(
         align: "left",
       });
     } else if (slideInput.type === "lookahead" && slideInput.lookaheadData) {
-      const { label, tasks } = slideInput.lookaheadData;
+      const { label, tasks, placeholderMessage } = slideInput.lookaheadData;
 
       // Caption bar with the label (same style as photo captions)
       slide.addText(label, {
@@ -463,52 +464,69 @@ export async function assembleSlidesPresentation(
         bold: false,
       });
 
-      // Build task rows in the main area
-      const taskFontSize = 16;
-      const subtaskFontSize = 14;
-      const lineHeight = 32;
-      let yPos = 80;
-
-      for (const task of tasks) {
-        const fontSize = task.isSubtask ? subtaskFontSize : taskFontSize;
-        const indent = task.isSubtask ? 40 : 0;
-        const prefix = task.isSubtask ? "  - " : "• ";
-        const dateRange = task.start && task.finish
-          ? `${task.start} - ${task.finish}`
-          : task.start || task.finish || "";
-
-        // Task name (left aligned)
-        slide.addText(`${prefix}${task.name}`, {
-          x: (SUMMARY_TEXT_LEFT + indent) / PPI,
-          y: yPos / PPI,
-          w: 800 / PPI,
-          h: lineHeight / PPI,
-          fontSize: fontSize,
+      // If no tasks and we have a placeholder message, show it centered
+      if (tasks.length === 0 && placeholderMessage) {
+        slide.addText(placeholderMessage, {
+          x: SUMMARY_TEXT_LEFT / PPI,
+          y: 300 / PPI,
+          w: SUMMARY_TEXT_WIDTH / PPI,
+          h: 200 / PPI,
+          fontSize: 20,
           fontFace: "Segoe UI",
-          color: task.isSubtask ? "444444" : "000000",
-          bold: !task.isSubtask,
+          color: "666666",
+          align: "center",
           valign: "middle",
+          italic: true,
         });
+      } else {
+        // Build task rows in the main area
+        const taskFontSize = 16;
+        const subtaskFontSize = 14;
+        const lineHeight = 32;
+        let yPos = 80;
 
-        // Date range (right aligned)
-        if (dateRange) {
-          slide.addText(dateRange, {
-            x: 900 / PPI,
+        for (const task of tasks) {
+          const fontSize = task.isSubtask ? subtaskFontSize : taskFontSize;
+          const indent = task.isSubtask ? 40 : 0;
+          const prefix = task.isSubtask ? "  - " : "• ";
+          const dateRange =
+            task.start && task.finish
+              ? `${task.start} - ${task.finish}`
+              : task.start || task.finish || "";
+
+          // Task name (left aligned)
+          slide.addText(`${prefix}${task.name}`, {
+            x: (SUMMARY_TEXT_LEFT + indent) / PPI,
             y: yPos / PPI,
-            w: 300 / PPI,
+            w: 800 / PPI,
             h: lineHeight / PPI,
             fontSize: fontSize,
             fontFace: "Segoe UI",
-            color: "666666",
-            align: "right",
+            color: task.isSubtask ? "444444" : "000000",
+            bold: !task.isSubtask,
             valign: "middle",
           });
+
+          // Date range (right aligned)
+          if (dateRange) {
+            slide.addText(dateRange, {
+              x: 900 / PPI,
+              y: yPos / PPI,
+              w: 300 / PPI,
+              h: lineHeight / PPI,
+              fontSize: fontSize,
+              fontFace: "Segoe UI",
+              color: "666666",
+              align: "right",
+              valign: "middle",
+            });
+          }
+
+          yPos += lineHeight;
+
+          // Stop before caption bar area
+          if (yPos > PHOTO_AREA_HEIGHT - 50) break;
         }
-
-        yPos += lineHeight;
-
-        // Stop before caption bar area
-        if (yPos > PHOTO_AREA_HEIGHT - 50) break;
       }
     }
     // Closing slides just use the image, no editable text needed

@@ -7,6 +7,7 @@ Automated monthly construction report generator that integrates with Procore to:
 3. Generate AI captions for photos
 4. Fetch 3-week lookahead schedules
 5. Assemble everything into a branded PowerPoint presentation
+6. Upload to Supabase storage for client download
 
 ## Current State (Dec 2024)
 **Working end-to-end:**
@@ -16,11 +17,25 @@ Automated monthly construction report generator that integrates with Procore to:
 - AI-generated captions for each photo
 - Lookahead schedule fetching with date extraction from segments
 - PowerPoint generation with editable text boxes
+- **NEW:** Supabase worker for automated report generation
+- **NEW:** Guard rails for minimum data validation
+
+## Architecture
+
+### Manual Workflow (Testing)
+```
+build-report-spec → test-slides → PowerPoint file
+```
+
+### Automated Workflow (Production)
+```
+Supabase table (owner_reports) → Worker polls → Pipeline generates → Upload to bucket
+```
 
 ## Key Files
 
 ### Configuration
-- `src/config.ts` - Environment variables (API keys, Procore credentials)
+- `src/config.ts` - Environment variables (API keys, Procore credentials, Supabase)
 - `.env` - Secrets (not in git)
 
 ### Procore API Integration
@@ -34,20 +49,48 @@ Automated monthly construction report generator that integrates with Procore to:
 - `src/aiClient.ts` - OpenAI integration for summaries and captions
 - `src/buildReportSpec.ts` - Build report spec from notes/images
 - `src/imageDownloader.ts` - Download images from Procore
+- `src/imageCandidateSelection.ts` - Select candidate images based on AI photo days
 
 ### Slide Generation
 - `src/slideCompositor.ts` - Sharp image compositing + PptxGenJS PowerPoint assembly
 - Slide types: summary, photo, lookahead, closing
 - All text is editable in the final PowerPoint
+- Lookahead slides show placeholder message when no schedule exists
+
+### Pipeline & Worker (NEW)
+- `src/pipeline/generateReport.ts` - Consolidated end-to-end report generation
+- `src/worker/reportWorker.ts` - Polls Supabase, processes jobs, uploads results
+- `src/reportValidation.ts` - Guard rails (min 4 notes, min 5 photos)
+- `src/supabaseClient.ts` - Supabase client and type definitions
 
 ### Test Scripts (npm run)
 - `build-report-spec` - Generate report spec JSON
 - `test-slides` - Generate PowerPoint from spec
 - `test-lookahead` - Debug lookahead API response
+- `worker` - Run the Supabase worker (production)
+
+## Environment Variables
+
+### Required
+```env
+PROCORE_CLIENT_ID=xxx
+PROCORE_CLIENT_SECRET=xxx
+PROCORE_COMPANY_ID=xxx
+OPENAI_API_KEY=xxx
+SUPABASE_URL=xxx
+SUPABASE_SERVICE_KEY=xxx
+```
+
+### Optional
+```env
+PROCORE_OAUTH_BASE_URL=https://login.procore.com
+PROCORE_API_BASE_URL=https://api.procore.com
+PROCORE_REDIRECT_URI=urn:ietf:wg:oauth:2.0:oob
+```
 
 ## Workflow
 
-### Generate a Report
+### Manual: Generate a Report (Testing)
 ```bash
 # Step 1: Build the report spec (fetches notes, generates summary, selects images)
 npm run build-report-spec -- <projectId> <YYYY-MM>
@@ -56,24 +99,86 @@ npm run build-report-spec -- <projectId> <YYYY-MM>
 npm run test-slides -- output/<ProjectName>_<YYYY-MM>_spec.json
 ```
 
-### Example
+### Automated: Run the Worker (Production)
 ```bash
-npm run build-report-spec -- 562949955107625 2025-11
-npm run test-slides -- output/Procore_Emerald_2025-11_spec.json
+npm run worker
 ```
+
+The worker:
+- Polls `owner_reports` table every 30 seconds
+- Joins with `jobs` table to get Procore project info
+- Processes one report at a time
+- Uploads completed reports to `owner-reports` bucket
+- Updates report status (pending → processing → completed/failed)
+- Runs cleanup every hour to delete expired reports (>5 days old)
+
+## Supabase Schema
+
+### Table: `owner_reports`
+References ForeSyt's `jobs` table for project info. Uses Postgres enum for status. Has RLS enabled.
+
+```sql
+-- Status enum
+create type owner_report_status_type as enum (
+  'pending', 'queued', 'processing', 'completed', 'failed'
+);
+
+create table owner_reports (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references jobs(id),
+  organization_id uuid not null references organizations(id),  -- For RLS
+  period_start date not null,
+  period_end date not null,
+  status owner_report_status_type not null default 'pending',
+  error_message text,
+  pptx_path text,  -- Storage path, frontend generates signed URLs
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  started_at timestamptz,
+  completed_at timestamptz
+);
+-- RLS enabled on this table
+```
+
+### Related: `jobs` table (ForeSyt)
+```sql
+-- Worker joins to get Procore info
+jobs (
+  id uuid,
+  name text,  -- Project name
+  organization_id uuid,
+  procore_project_id text  -- Nullable, may not be linked to Procore
+)
+```
+
+**Note:** If `procore_project_id` is null, the worker will fail the report with a message asking to link a Procore project.
+
+### Storage Bucket: `owner-reports`
+- Path format: `reports/{report_id}/{filename}.pptx`
+- Frontend generates signed URLs at download time
+- Cleanup: Worker deletes files >5 days old (hourly check), clears `pptx_path` but keeps record
+
+## Guard Rails
+
+| Check | Threshold | Error Message |
+|-------|-----------|---------------|
+| Notes count | < 4 | "Insufficient daily log data (found X notes, minimum 4 required)" |
+| Photos count | < 5 | "Insufficient photos (found X photos, minimum 5 required)" |
+
+When thresholds aren't met, the job fails with a user-friendly message suggesting manual report creation.
 
 ## Slide Structure
 1. **Summary slide** - AI-generated bullet points from daily notes
 2. **Photo slides** - Project photos with AI captions (editable)
-3. **Lookahead slide** - 3-week schedule with tasks and dates
+3. **Lookahead slide** - 3-week schedule with tasks and dates (or placeholder if none)
 4. **Closing slide** - Static branded slide
 
-## Lookahead Date Logic
+## Lookahead Behavior
+- Always creates a lookahead slide
+- If no lookahead exists: Shows placeholder message "No valid lookahead exists. Create one and place it here, or delete this slide."
+- If lookahead exists: Shows tasks with date ranges
 - Parent tasks: No dates displayed
 - Subtasks: Dates extracted from `segments[]` array
-- Each segment has `date` and `status`
-- `status === "unstarted"` means NOT active that day
-- Any other status means active - we show first to last active date range
 
 ## Report Images (Branding)
 Located in `report_images/`:
@@ -86,21 +191,16 @@ Located in `report_images/`:
 - Caption bar: 87px at bottom
 - Photo area: 933px height
 
-## Recent Changes
-- Switched from PDF to PowerPoint output (pptxgenjs)
-- Fixed duplicate text bug (text was burned into PNG AND added as text box)
-- Added lookahead slide with segments-based date extraction
-- Summary text color changed to black
-
-## Known Issues / Next Steps
-- Lookahead date extraction now working (uses segments array)
-- May want to handle "chunked" tasks (gaps in active dates) differently
-- Could add more slide customization options
-
 ## Dependencies
 - axios - HTTP client for Procore API
-- sharp - Image compositing
+- sharp - Image compositing (could be removed, see notes)
 - pptxgenjs - PowerPoint generation
 - openai - AI summaries and captions
 - fs-extra - File operations
 - dotenv - Environment variables
+- @supabase/supabase-js - Supabase client
+
+## Notes
+- Sharp is still used for image compositing but could potentially be removed since PptxGenJS can handle image sizing with `sizing: "cover"`
+- The worker runs indefinitely - use process manager (PM2, systemd) in production
+- pdf-lib dependency is unused (legacy from PDF output)

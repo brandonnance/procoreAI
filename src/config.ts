@@ -23,3 +23,7 @@ export const PROCORE_API_BASE_URL =
   process.env.PROCORE_API_BASE_URL || "https://api.procore.com";
 export const PROCORE_REDIRECT_URI =
   process.env.PROCORE_REDIRECT_URI || "urn:ietf:wg:oauth:2.0:oob";
+
+// Supabase configuration
+export const SUPABASE_URL = requireEnv("SUPABASE_URL");
+export const SUPABASE_SERVICE_KEY = requireEnv("SUPABASE_SERVICE_KEY");

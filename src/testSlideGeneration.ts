@@ -170,23 +170,20 @@ async function main() {
     }
   }
 
-  // 3. Add lookahead slide (if available)
+  // 3. Add lookahead slide (always create, with placeholder if no data)
   console.log("\n--- Fetching lookahead schedule ---");
-  let lookaheadAdded = false;
+  const lookaheadSlideFilename = `slide_${String(spec.images.length + 1).padStart(2, "0")}_lookahead.png`;
+  const lookaheadPath = path.join(slidesDir, lookaheadSlideFilename);
 
   try {
     const lookahead = await getMostRecentLookahead(spec.projectId);
+
+    await composeLookaheadSlide(lookaheadPath);
 
     if (lookahead) {
       console.log(`  Found lookahead: ${lookahead.label}`);
       const tasks = flattenLookaheadTasks(lookahead);
       console.log(`  Tasks: ${tasks.length}`);
-
-      // Use photo overlay for lookahead slide (white bg + overlay)
-      const lookaheadSlideFilename = `slide_${String(spec.images.length + 1).padStart(2, "0")}_lookahead.png`;
-      const lookaheadPath = path.join(slidesDir, lookaheadSlideFilename);
-
-      await composeLookaheadSlide(lookaheadPath);
 
       const lookaheadData: LookaheadSlideData = {
         label: lookahead.label,
@@ -199,18 +196,53 @@ async function main() {
         lookaheadData: lookaheadData,
       });
 
-      lookaheadAdded = true;
       console.log(`  ✓ Created: ${lookaheadSlideFilename}`);
     } else {
-      console.log("  No lookahead found for this project.");
+      console.log("  No lookahead found - creating placeholder slide");
+
+      const lookaheadData: LookaheadSlideData = {
+        label: "3-Week Lookahead",
+        tasks: [],
+        placeholderMessage:
+          "No valid lookahead exists. Create one and place it here, or delete this slide.",
+      };
+
+      allSlides.push({
+        imagePath: lookaheadPath,
+        type: "lookahead",
+        lookaheadData: lookaheadData,
+      });
+
+      console.log(`  ✓ Created placeholder: ${lookaheadSlideFilename}`);
     }
   } catch (err: any) {
     console.log(`  ✗ Error fetching lookahead: ${err.message}`);
+    // Still create a placeholder slide on error
+    try {
+      await composeLookaheadSlide(lookaheadPath);
+
+      const lookaheadData: LookaheadSlideData = {
+        label: "3-Week Lookahead",
+        tasks: [],
+        placeholderMessage:
+          "No valid lookahead exists. Create one and place it here, or delete this slide.",
+      };
+
+      allSlides.push({
+        imagePath: lookaheadPath,
+        type: "lookahead",
+        lookaheadData: lookaheadData,
+      });
+
+      console.log(`  ✓ Created placeholder: ${lookaheadSlideFilename}`);
+    } catch (composeErr: any) {
+      console.log(`  ✗ Error creating lookahead slide: ${composeErr.message}`);
+    }
   }
 
   // 4. Add last slide
   console.log("\n--- Adding closing slide ---");
-  const closingSlideNum = spec.images.length + (lookaheadAdded ? 2 : 1);
+  const closingSlideNum = spec.images.length + 2; // Always includes lookahead slide now
   const lastSlideFilename = `slide_${String(closingSlideNum).padStart(2, "0")}_closing.png`;
   const lastSlidePath = path.join(slidesDir, lastSlideFilename);
 
@@ -242,7 +274,7 @@ async function main() {
   console.log(`\n=== Complete ===`);
   console.log(`Summary slide: 1`);
   console.log(`Photo slides: ${slidesCreated}`);
-  console.log(`Lookahead slide: ${lookaheadAdded ? 1 : 0}`);
+  console.log(`Lookahead slide: 1`);
   console.log(`Closing slide: 1`);
   console.log(`Total slides: ${allSlides.length}`);
   console.log(`\nOutput folder: ${slidesDir}`);

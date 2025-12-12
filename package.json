@@ -17,12 +17,14 @@
     "test-image-selection": "ts-node src/testImageSelection.ts",
     "build-report-spec": "ts-node src/testBuildReportSpec.ts",
     "test-slides": "ts-node src/testSlideGeneration.ts",
-    "test-lookahead": "ts-node src/testLookahead.ts"
+    "test-lookahead": "ts-node src/testLookahead.ts",
+    "worker": "ts-node src/worker/reportWorker.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.87.1",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "fs-extra": "^11.3.2",
