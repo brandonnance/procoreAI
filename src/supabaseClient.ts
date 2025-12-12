@@ -5,10 +5,9 @@ import { SUPABASE_URL, SUPABASE_SERVICE_KEY } from "./config";
 // Status enum matching Postgres owner_report_status_type
 export type OwnerReportStatus =
   | "pending"
-  | "queued"
   | "processing"
-  | "completed"
-  | "failed";
+  | "ready"
+  | "error";
 
 // Database types for owner_reports table
 export interface OwnerReport {

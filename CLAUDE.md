@@ -120,7 +120,7 @@ References ForeSyt's `jobs` table for project info. Uses Postgres enum for statu
 ```sql
 -- Status enum
 create type owner_report_status_type as enum (
-  'pending', 'queued', 'processing', 'completed', 'failed'
+  'pending', 'processing', 'ready', 'error'
 );
 
 create table owner_reports (

@@ -71,13 +71,13 @@ async function markJobProcessing(jobId: string): Promise<void> {
 }
 
 /**
- * Mark a job as completed with the storage path.
+ * Mark a job as ready (completed) with the storage path.
  */
-async function markJobCompleted(jobId: string, pptxPath: string): Promise<void> {
+async function markJobReady(jobId: string, pptxPath: string): Promise<void> {
   const { error } = await supabase
     .from("owner_reports")
     .update({
-      status: "completed",
+      status: "ready",
       pptx_path: pptxPath,
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -85,18 +85,18 @@ async function markJobCompleted(jobId: string, pptxPath: string): Promise<void> 
     .eq("id", jobId);
 
   if (error) {
-    throw new Error(`Failed to mark job as completed: ${error.message}`);
+    throw new Error(`Failed to mark job as ready: ${error.message}`);
   }
 }
 
 /**
- * Mark a job as failed with an error message.
+ * Mark a job as error (failed) with an error message.
  */
-async function markJobFailed(jobId: string, errorMessage: string): Promise<void> {
+async function markJobError(jobId: string, errorMessage: string): Promise<void> {
   const { error } = await supabase
     .from("owner_reports")
     .update({
-      status: "failed",
+      status: "error",
       error_message: errorMessage,
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -104,7 +104,7 @@ async function markJobFailed(jobId: string, errorMessage: string): Promise<void>
     .eq("id", jobId);
 
   if (error) {
-    console.error(`Failed to mark job as failed: ${error.message}`);
+    console.error(`Failed to mark job as error: ${error.message}`);
   }
 }
 
@@ -160,7 +160,7 @@ async function processJob(report: OwnerReportWithJob): Promise<void> {
   // Check if job has Procore project linked
   if (!job.procore_project_id) {
     console.log(`  ✗ Job has no Procore project linked`);
-    await markJobFailed(
+    await markJobError(
       reportId,
       "Job is not linked to a Procore project. Link a Procore project to generate reports."
     );
@@ -198,8 +198,8 @@ async function processJob(report: OwnerReportWithJob): Promise<void> {
       result.pptxFilename
     );
 
-    // Mark as completed
-    await markJobCompleted(reportId, storagePath);
+    // Mark as ready
+    await markJobReady(reportId, storagePath);
 
     console.log(`  ✓ Report completed successfully`);
     console.log(`  Storage path: ${storagePath}`);
@@ -215,8 +215,8 @@ async function processJob(report: OwnerReportWithJob): Promise<void> {
         "Report generation unable to complete. Suggest manually creating report.";
     }
 
-    await markJobFailed(reportId, errorMessage);
-    console.log(`  Report marked as failed: ${errorMessage}`);
+    await markJobError(reportId, errorMessage);
+    console.log(`  Report marked as error: ${errorMessage}`);
   }
 }
 
@@ -231,11 +231,11 @@ async function cleanupExpiredReports(): Promise<void> {
 
   console.log(`\n[${new Date().toISOString()}] Running cleanup for reports older than ${REPORT_EXPIRY_DAYS} days...`);
 
-  // Find completed reports with pptx_path that are older than expiry
+  // Find ready (completed) reports with pptx_path that are older than expiry
   const { data: expiredReports, error: fetchError } = await supabase
     .from("owner_reports")
     .select("id, pptx_path")
-    .eq("status", "completed")
+    .eq("status", "ready")
     .not("pptx_path", "is", null)
     .lt("completed_at", expiryDateStr);
 
