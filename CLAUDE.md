@@ -109,7 +109,7 @@ The worker:
 - Joins with `jobs` table to get Procore project info
 - Processes one report at a time
 - Uploads completed reports to `owner-reports` bucket
-- Updates report status (pending → processing → completed/failed)
+- Updates report status (pending → processing → ready/error)
 - Runs cleanup every hour to delete expired reports (>5 days old)
 
 ## Supabase Schema
