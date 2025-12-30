@@ -187,7 +187,11 @@ async function processJob(report: OwnerReportWithJob): Promise<void> {
     );
 
     if (!result.success || !result.pptxPath || !result.pptxFilename) {
-      throw new Error(result.error || "Report generation failed");
+      // Use the error message from generateReport directly (includes validation errors)
+      const errorMessage = result.error || "Report generation failed";
+      await markJobError(reportId, errorMessage);
+      console.log(`  Report marked as error: ${errorMessage}`);
+      return;
     }
 
     // Upload to Supabase storage
