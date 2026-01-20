@@ -200,10 +200,11 @@ export async function generateReport(
     log("captions", `Generated ${aiCaptions.length} captions`);
 
     // Step 10: Create slides
-    log("slides", "Creating slides...");
+    log("slides", `Creating ${downloadedImages.size + 3} slides (1 summary + ${downloadedImages.size} photos + 1 lookahead + 1 closing)...`);
     const allSlides: PptxSlideInput[] = [];
 
     // Summary slide
+    log("slides", "  [1] Creating summary slide...");
     const summaryPath = path.join(slidesDir, "slide_00_summary.png");
     await composeSummarySlide(reportSpec.summaryBullets, summaryPath);
     allSlides.push({
@@ -211,13 +212,18 @@ export async function generateReport(
       type: "summary",
       summaryBullets: reportSpec.summaryBullets,
     });
+    log("slides", "  [1] ✓ Summary slide created");
 
     // Photo slides
+    let photoSlideCount = 0;
     for (let i = 0; i < reportSpec.images.length; i++) {
       const img = reportSpec.images[i];
       const photoPath = downloadedImages.get(img.id);
 
       if (!photoPath) continue;
+
+      photoSlideCount++;
+      log("slides", `  [${photoSlideCount + 1}] Creating photo slide ${photoSlideCount}/${downloadedImages.size}...`);
 
       const caption = captionMap.get(img.id) || "Project Progress";
       const slideFilename = `slide_${String(i + 1).padStart(2, "0")}.png`;
@@ -229,19 +235,22 @@ export async function generateReport(
         type: "photo",
         caption: caption,
       });
+      log("slides", `  [${photoSlideCount + 1}] ✓ Photo slide created`);
     }
 
     // Lookahead slide (always created, with placeholder if no data)
-    log("lookahead", "Creating lookahead slide...");
+    log("slides", `  [${photoSlideCount + 2}] Creating lookahead slide...`);
     const lookaheadPath = path.join(
       slidesDir,
       `slide_${String(reportSpec.images.length + 1).padStart(2, "0")}_lookahead.png`
     );
 
     await composeLookaheadSlide(lookaheadPath);
+    log("slides", `  [${photoSlideCount + 2}] ✓ Lookahead slide background created`);
 
     let lookaheadData: LookaheadSlideData;
     try {
+      log("slides", `  [${photoSlideCount + 2}] Fetching lookahead data from Procore...`);
       const lookahead = await getMostRecentLookahead(projectId);
       if (lookahead) {
         const tasks = flattenLookaheadTasks(lookahead);
@@ -249,7 +258,7 @@ export async function generateReport(
           label: lookahead.label,
           tasks: tasks,
         };
-        log("lookahead", `Found lookahead with ${tasks.length} tasks`);
+        log("slides", `  [${photoSlideCount + 2}] ✓ Found lookahead with ${tasks.length} tasks`);
       } else {
         lookaheadData = {
           label: "3-Week Lookahead",
@@ -257,16 +266,16 @@ export async function generateReport(
           placeholderMessage:
             "No valid lookahead exists. Create one and place it here, or delete this slide.",
         };
-        log("lookahead", "No lookahead found - using placeholder");
+        log("slides", `  [${photoSlideCount + 2}] No lookahead found - using placeholder`);
       }
-    } catch {
+    } catch (err: any) {
       lookaheadData = {
         label: "3-Week Lookahead",
         tasks: [],
         placeholderMessage:
           "No valid lookahead exists. Create one and place it here, or delete this slide.",
       };
-      log("lookahead", "Error fetching lookahead - using placeholder");
+      log("slides", `  [${photoSlideCount + 2}] Error fetching lookahead: ${err.message} - using placeholder`);
     }
 
     allSlides.push({
@@ -276,6 +285,7 @@ export async function generateReport(
     });
 
     // Closing slide
+    log("slides", `  [${photoSlideCount + 3}] Creating closing slide...`);
     const closingPath = path.join(
       slidesDir,
       `slide_${String(reportSpec.images.length + 2).padStart(2, "0")}_closing.png`
@@ -285,14 +295,15 @@ export async function generateReport(
       imagePath: closingPath,
       type: "closing",
     });
+    log("slides", `  [${photoSlideCount + 3}] ✓ Closing slide created`);
 
     // Step 11: Assemble PowerPoint
-    log("pptx", "Assembling PowerPoint...");
+    log("pptx", `Assembling PowerPoint from ${allSlides.length} slides...`);
     const pptxFilename = `${safeProjectName}_${month}_report.pptx`;
     const pptxPath = path.join(outputDir, pptxFilename);
 
     await assembleSlidesPresentation(allSlides, pptxPath);
-    log("pptx", `Created: ${pptxFilename}`);
+    log("pptx", `✓ Created: ${pptxFilename}`);
 
     return {
       success: true,
