@@ -99,9 +99,14 @@ export async function getImagesForMonth(
   const monthStart = new Date(Date.UTC(year, monthNum, 1));
   const monthEnd = new Date(Date.UTC(year, monthNum + 1, 0)); // last day
 
-  const today = new Date();
+  // Use a conservative "today" that accounts for timezone differences.
+  // Procore's API validates dates against US Pacific time (UTC-8).
+  // By subtracting 8 hours, we ensure the date we use is never "tomorrow"
+  // from Procore's perspective, regardless of when the worker runs.
+  const now = new Date();
+  const conservativeNow = new Date(now.getTime() - 8 * 60 * 60 * 1000); // subtract 8 hours
   const todayUTC = new Date(
-    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+    Date.UTC(conservativeNow.getFullYear(), conservativeNow.getMonth(), conservativeNow.getDate())
   );
 
   const effectiveEnd = monthEnd > todayUTC ? todayUTC : monthEnd;
