@@ -145,13 +145,15 @@ export async function generateReport(
     );
 
     // Step 8: Download images from Procore
-    log("download", "Downloading images from Procore...");
+    log("download", `Downloading ${reportSpec.images.length} images from Procore...`);
     const downloadedImages: Map<number, string> = new Map();
 
     for (let i = 0; i < reportSpec.images.length; i++) {
       const img = reportSpec.images[i];
       const ext = img.filename?.split(".").pop() || "jpg";
       const filename = `${String(i + 1).padStart(2, "0")}_${img.id}.${ext}`;
+
+      log("download", `  [${i + 1}/${reportSpec.images.length}] Downloading image ${img.id}...`);
 
       const procoreImg: ProcoreImage = {
         id: img.id,
@@ -163,6 +165,9 @@ export async function generateReport(
       const result = await downloadImage(projectId, procoreImg, rawImagesDir);
       if (result.success) {
         downloadedImages.set(img.id, result.localPath);
+        log("download", `  [${i + 1}/${reportSpec.images.length}] ✓ Downloaded`);
+      } else {
+        log("download", `  [${i + 1}/${reportSpec.images.length}] ✗ Failed: ${result.error}`);
       }
 
       // Small delay between downloads
