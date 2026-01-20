@@ -37,6 +37,7 @@ export async function getImagesForCreatedAtRange(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    timeout: 30_000, // 30 second timeout
   });
 
   const perPage = 200;

@@ -9,7 +9,10 @@ if (!OPENAI_API_KEY) {
   );
 }
 
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+  timeout: 60_000, // 60 second timeout per request
+});
 
 export interface SummarizeOptions {
   maxWords?: number;

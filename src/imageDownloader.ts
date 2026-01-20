@@ -29,6 +29,7 @@ async function getImageDetails(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    timeout: 30_000, // 30 second timeout for API calls
   });
 
   const res = await client.get(`/rest/v1.0/images/${imageId}`, {
@@ -78,6 +79,7 @@ export async function downloadImage(
     // Download the image binary
     const response = await axios.get(imageUrl, {
       responseType: "arraybuffer",
+      timeout: 60_000, // 60 second timeout for image download
     });
 
     // Ensure output directory exists

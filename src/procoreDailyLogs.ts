@@ -71,6 +71,7 @@ export async function getDailyNotesForMonth(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    timeout: 30_000, // 30 second timeout
   });
 
   try {

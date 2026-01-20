@@ -62,6 +62,7 @@ export async function getLookaheadList(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    timeout: 30_000, // 30 second timeout
   });
 
   try {
@@ -108,6 +109,7 @@ export async function getLookaheadDetail(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    timeout: 30_000, // 30 second timeout
   });
 
   try {

@@ -75,6 +75,7 @@ export async function getFreshAccessToken(): Promise<string> {
     },
     {
       headers: { "Content-Type": "application/json" },
+      timeout: 30_000, // 30 second timeout
     }
   );
 
